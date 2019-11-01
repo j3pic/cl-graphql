@@ -1,3 +1,5 @@
+;; Based on the GraphQL Specification at: https://graphql.github.io/graphql-spec/June2018/
+
 (asdf:defsystem :cl-graphql
     :author ("Jeremy Phelps")
     :version "1"
