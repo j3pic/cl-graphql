@@ -88,6 +88,9 @@ where the character was read from."
     result))
 
 (defmacro as-> (initial var &body body)
+  "Evaluates each form in the BODY with VAR bound to the value of the previous form.
+The first form will be evaluated with VAR bound to INITIAL. The final value of the
+form is that of the last form in the BODY."
   (if (null body)
       initial
       `(let ((,var ,initial))
