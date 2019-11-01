@@ -278,6 +278,17 @@ is supposed to finagle the whitespace to remove indentation."
 		     nil
 		     (tokens/no-comments remainder)))))
 
+(defun stripped-token (tok)
+  "Returns a token stripped of line-count information"
+  (stream-map (lambda (tok)
+		(if (line-counted-p tok)
+		    (stream->string (line-counted-val tok))
+		    tok))
+	      tok))
+
+(defun strip-line-info-from-tokens (token-stream)
+  (stream-map #'stripped-token token-stream))
+ 
 (defun tokens (lazy-stream)
   "Given a lazy-stream full of line-counted characters, returns a lazy-stream of line-counted tokens."
   (tokens/no-comments (strip-comments lazy-stream)))
