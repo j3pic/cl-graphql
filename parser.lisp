@@ -1,3 +1,5 @@
+(in-package :cl-graphql)
+
 (defun token-type (tok)
   (first tok))
 
