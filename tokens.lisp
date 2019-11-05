@@ -113,8 +113,6 @@ GraphQL specification."
 		 append line))))	 
 
 (defun parse-block-string (stream)
-  "FIXME: Implement the very complicated BlockStringValue() function described in the spec. This function
-is supposed to finagle the whitespace to remove indentation."
   (unless (equal (coerce (stream->list
 			  (strip-line-info 
 			   (take 3 stream)))
@@ -204,47 +202,58 @@ is supposed to finagle the whitespace to remove indentation."
       (values nil stream))))
   
 
+(defmacro append-first-value (multi-value-expr list)
+  (let ((vals (gensym)))
+    `(let ((,vals (multiple-value-list ,multi-value-expr)))
+       (apply #'values
+	      (cons
+	       (append (car ,vals) ,list)
+	       (cdr ,vals))))))
+
 (defun token-class (stream)
-  (acond2 ((whitespacep (head stream))
-	   (token-class (drop-whitespace stream)))
-	  ((member (head stream) '(#\! #\$ #\( #\) #\: #\= #\@ #\[ #\] #\{ #\| #\}) :test #'ch=)
-	   (values (list :punctuator
-			 (list (head stream)))
-		   (tail stream)))
-	  ((every (curry #'ch= #\.)
-		  (stream->list (take 3 stream)))
-	   (alter-first-value (split-at 3 stream)
-	       dots
-	     (list :punctuator dots)))
-	  ((int-part stream)
-	   (let ((int-part it)
-		 (not-int-part not-it))
-	     (acond2 ((fractional-part not-int-part)
-		      (let ((frac-part it)
-			    (not-frac-part not-it))
-			(aif2 (exponential-part not-frac-part)
-			      (values (list :float-value (stream-append int-part frac-part it))
-				      not-it)
-			      (values (list :float-value (stream-append int-part frac-part))
-				      not-frac-part))))
-		     ((exponential-part not-int-part)
-		      (values (list :float-value (stream-append int-part it))
-			      not-it))
-		     (t (values (list :int-value int-part)
-				not-int-part)))))
-	  ((and (starting-name-charp (head stream))
-		(name-charp (head (tail stream))))
-	   (alter-first-value (split-where (compose #'not #'name-charp) stream) name
-	     (list :name name)))
-	  ((parse-string-value stream)
-	   (values (list :string it) not-it))
-	  (t (raise-parse-error stream))))
+  (append-first-value
+   (acond2 ((whitespacep (head stream))
+	    (token-class (drop-whitespace stream)))
+	   ((member (head stream) '(#\! #\$ #\( #\) #\: #\= #\@ #\[ #\] #\{ #\| #\}) :test #'ch=)
+	    (values (list :punctuator
+			  (list (head stream)))
+		    (tail stream)))
+	   ((every (curry #'ch= #\.)
+		   (stream->list (take 3 stream)))
+	    (alter-first-value (split-at 3 stream)
+		dots
+	      (list :punctuator dots)))
+	   ((int-part stream)
+	    (let ((int-part it)
+		  (not-int-part not-it))
+	      (acond2 ((fractional-part not-int-part)
+		       (let ((frac-part it)
+			     (not-frac-part not-it))
+			 (aif2 (exponential-part not-frac-part)
+			       (values (list :float-value (stream-append int-part frac-part it))
+				       not-it)
+			       (values (list :float-value (stream-append int-part frac-part))
+				       not-frac-part))))
+		      ((exponential-part not-int-part)
+		       (values (list :float-value (stream-append int-part it))
+			       not-it))
+		      (t (values (list :int-value int-part)
+				 not-int-part)))))
+	   ((and (starting-name-charp (head stream))
+		 (name-charp (head (tail stream))))
+	    (alter-first-value (split-where (compose #'not #'name-charp) stream) name
+	      (list :name name)))
+	   ((parse-string-value stream)
+	    (values (list :string it) not-it))
+	   (t (raise-parse-error stream)))
+   (list stream)))
   
 (defun take-token (lazy-stream)
   (multiple-value-bind (token-class remainder) (token-class lazy-stream)
     (values
      (list (first token-class)
-	   (copy-line-count-info (strip-line-info (second token-class)) (head (second token-class))))
+	   (copy-line-count-info (strip-line-info (second token-class)) (head (second token-class)))
+	   (third token-class))
      remainder)))
 
 (defun drop-while-comment (lazy-stream)
